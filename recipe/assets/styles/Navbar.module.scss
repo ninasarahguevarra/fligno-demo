@@ -1,6 +1,6 @@
 
 .wrapper {
-    @apply bg-white w-full shadow-sm lg:static lg:overflow-y-visible py-4;
+    @apply bg-white w-full shadow-sm lg:static lg:overflow-y-visible lg:py-4 md:py-10 py-4;
 }
 .grid-container {
     @apply relative flex justify-between lg:gap-8 xl:grid xl:grid-cols-12;

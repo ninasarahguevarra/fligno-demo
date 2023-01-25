@@ -9,6 +9,7 @@ import { Token } from "utils/enum";
 import { classNames } from "utils/helpers";
 import { getRecipeList } from "store/slices/recipeListSlice";
 import styles from "assets/styles/Navbar.module.scss";
+import isEmpty from "lodash/isEmpty";
 
 const NavbarComponent = () => {
     const dispatch = useDispatch();
@@ -23,7 +24,9 @@ const NavbarComponent = () => {
     };
 
     useEffect(() => {
-        setUserInfo(JSON.parse(localStorage.getItem(Token.Personal)))
+        if (!isEmpty(JSON.parse(localStorage.getItem(Token.Personal)))) {
+            setUserInfo(JSON.parse(localStorage.getItem(Token.Personal)))
+        }
     }, []);
 
     const onClickMenuItem = (item) => {
@@ -145,10 +148,12 @@ const NavbarComponent = () => {
                                 <div className="flex-shrink-0">
                                     <UserIcon className="h-8 w-8 text-gray-400" aria-hidden="true" />
                                 </div>
-                                <div className="ml-3">
-                                    <div className={styles.name}>{userInfo.name}</div>
-                                    <div className={styles.email}>{userInfo.email}</div>
-                                </div>
+                                {!isEmpty(userInfo) &&
+                                    <div className="ml-3">
+                                        <div className={styles.name}>{userInfo.name}</div>
+                                        <div className={styles.email}>{userInfo.email}</div>
+                                    </div>
+                                }
                             </div>
                             <div className={styles['mobile-menu']}>
                                 {userNavigation.map((item) => (

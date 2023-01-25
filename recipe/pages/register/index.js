@@ -171,11 +171,11 @@ const Register = () => {
                     )}
                 </div>
 
-                <ButtonComponent type="solid" label="Sign Up" action="submit" />
+                <ButtonComponent type="solid" label="Sign Up" className="w-full" action="submit" />
 
                 <div>
                     <Link href="/">
-                        <ButtonComponent action="button" type="outline" label="Back to Sign In" />
+                        <ButtonComponent action="button" type="outline" label="Back to Sign In" className="w-full" />
                     </Link>
                 </div>
             </form>

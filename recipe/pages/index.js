@@ -72,11 +72,11 @@ const Login = () => {
                     </div>
                 </div>
 
-                <ButtonComponent type="solid" label="Sign In" action="submit" />
+                <ButtonComponent type="solid" label="Sign In" action="submit" className="w-full" />
 
                 <div>
                     <Link href="/register">
-                        <ButtonComponent type="outline" label="Create New Account" />
+                        <ButtonComponent type="outline" label="Create New Account" className="w-full" />
                     </Link>
                 </div>
             </form>

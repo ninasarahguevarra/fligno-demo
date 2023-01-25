@@ -1,7 +1,7 @@
 import { classNames } from "utils/helpers";
 
 const ButtonComponent = ({ action = "", type="solid", label, onClick, loading, className, children }) => {
-    const style= "flex w-full justify-center items-center rounded-md border py-2 px-4 text-sm font-medium shadow-sm leading-none";
+    const style= "flex justify-center items-center rounded-md border py-2 px-4 text-sm font-medium shadow-sm leading-none";
     let color;
     switch (type) {
         case 'solid':

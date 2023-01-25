@@ -11,7 +11,7 @@ import { Token } from "@/utils/enum";
 import { postAddToFavorites, postRemoveFromFavorites, selectFavorites, getFavorites } from "store/slices/favoritesSlice";
 import styles from "assets/styles/CardComponent.module.scss"
 
-const CardComponent = ({recipe, onClick}) => {
+const CardComponent = ({recipe, onClick, containerClass}) => {
     const dispatch = useDispatch();
     const router = useRouter()
     const { query } = router
@@ -42,7 +42,7 @@ const CardComponent = ({recipe, onClick}) => {
     }
 
     return (
-        <div className={styles.wrapper}>
+        <div className={classNames(styles.wrapper, containerClass)}>
             <div className={classNames('group',styles['image-wrapper'])} onClick={onClick}>
                 <img className="group-hover:opacity-75" src={recipe.image} alt={recipe.label} />
             </div>
