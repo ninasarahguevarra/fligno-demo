@@ -1,0 +1,33 @@
+.wrapper {
+    @apply flex min-h-screen;
+    .sub-wrapper {
+        @apply flex flex-1 flex-col justify-center py-12 px-4 sm:px-6 lg:flex-none lg:px-20 xl:px-24;
+    }
+    .form-container {
+        @apply mx-auto w-full max-w-sm lg:w-96;
+        form {
+            @apply space-y-6;
+        }
+        label {
+            @apply block text-sm font-medium text-gray-700;
+        }
+        h2 {
+            @apply mt-6 text-3xl font-bold tracking-tight text-gray-900 mx-auto;
+        }
+        img {
+            @apply mx-auto;
+        }
+        .password-input {
+            @apply relative flex flex-grow items-stretch focus-within:z-10;
+            input {
+                @apply rounded-tr-none rounded-br-none;
+            }
+        }
+    }
+    .deco {
+        @apply relative hidden w-0 flex-1 lg:block;
+        img {
+            @apply absolute inset-0 h-full w-full object-cover opacity-100;
+        }
+    }
+}

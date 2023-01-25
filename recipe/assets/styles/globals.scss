@@ -1,0 +1,63 @@
+// start of Tailwind css
+@tailwind base;
+@font-face {
+    font-family: Montserrat;
+    src: url("../fonts/Montserrat/Montserrat-ExtraBold.ttf");
+    font-weight: 800;
+}
+@font-face {
+    font-family: Montserrat;
+    src: url("../fonts/Montserrat/Montserrat-Bold.ttf");
+    font-weight: 700;
+}
+@font-face {
+    font-family: Montserrat;
+    src: url("../fonts/Montserrat/Montserrat-SemiBold.ttf");
+    font-weight: 600;
+}
+@font-face {
+    font-family: Montserrat;
+    src: url("../fonts/Montserrat/Montserrat-Medium.ttf");
+    font-weight: 500;
+}
+@font-face {
+    font-family: Montserrat;
+    src: url("../fonts/Montserrat/Montserrat-Regular.ttf");
+    font-weight: 400;
+}
+@tailwind components;
+@tailwind utilities;
+
+// end of Tailwind css
+
+* {
+    @apply font-inter #{!important};
+}
+
+// scrollbar SCSS
+/* width */
+::-webkit-scrollbar {
+    width: 5px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+    @apply bg-rose-100;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+    @apply bg-rose-300;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+    @apply bg-rose-800;
+}
+
+.error-validation {
+    @apply text-red-500 text-xs;
+}
+input, input[type="text"], input[type="password"] {
+    @apply block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-rose-300 focus:outline-none focus:ring-rose-300 sm:text-sm ring-0 focus:ring-0;
+}

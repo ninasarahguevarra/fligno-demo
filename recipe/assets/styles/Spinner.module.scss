@@ -1,0 +1,11 @@
+.wrapper {
+    @apply my-auto flex justify-center items-center w-full;
+}
+.sub-wrapper {
+    @apply flex justify-center items-center;
+}
+.spinner-element {
+    border: 0.25em solid;
+    vertical-align: -0.125em;
+    @apply border-r-transparent border-solid animate-spin inline-block rounded-full;
+}
