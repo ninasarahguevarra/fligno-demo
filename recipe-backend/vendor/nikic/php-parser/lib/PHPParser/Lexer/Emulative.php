@@ -1,200 +1,251 @@
-<?php
+<?php declare(strict_types=1);
 
-/**
- * ATTENTION: This code is WRITE-ONLY. Do not try to read it.
- */
-class PHPParser_Lexer_Emulative extends PHPParser_Lexer
+namespace PhpParser\Lexer;
+
+use PhpParser\Error;
+use PhpParser\ErrorHandler;
+use PhpParser\Lexer;
+use PhpParser\Lexer\TokenEmulator\AttributeEmulator;
+use PhpParser\Lexer\TokenEmulator\EnumTokenEmulator;
+use PhpParser\Lexer\TokenEmulator\CoaleseEqualTokenEmulator;
+use PhpParser\Lexer\TokenEmulator\ExplicitOctalEmulator;
+use PhpParser\Lexer\TokenEmulator\FlexibleDocStringEmulator;
+use PhpParser\Lexer\TokenEmulator\FnTokenEmulator;
+use PhpParser\Lexer\TokenEmulator\MatchTokenEmulator;
+use PhpParser\Lexer\TokenEmulator\NullsafeTokenEmulator;
+use PhpParser\Lexer\TokenEmulator\NumericLiteralSeparatorEmulator;
+use PhpParser\Lexer\TokenEmulator\ReadonlyFunctionTokenEmulator;
+use PhpParser\Lexer\TokenEmulator\ReadonlyTokenEmulator;
+use PhpParser\Lexer\TokenEmulator\ReverseEmulator;
+use PhpParser\Lexer\TokenEmulator\TokenEmulator;
+
+class Emulative extends Lexer
 {
-    protected $newKeywords;
-    protected $inObjectAccess;
+    const PHP_7_3 = '7.3dev';
+    const PHP_7_4 = '7.4dev';
+    const PHP_8_0 = '8.0dev';
+    const PHP_8_1 = '8.1dev';
+    const PHP_8_2 = '8.2dev';
 
-    public function __construct() {
-        parent::__construct();
+    /** @var mixed[] Patches used to reverse changes introduced in the code */
+    private $patches = [];
 
-        $newKeywordsPerVersion = array(
-            '5.5.0-dev' => array(
-                'finally'       => PHPParser_Parser::T_FINALLY,
-                'yield'         => PHPParser_Parser::T_YIELD,
-            ),
-            '5.4.0-dev' => array(
-                'callable'      => PHPParser_Parser::T_CALLABLE,
-                'insteadof'     => PHPParser_Parser::T_INSTEADOF,
-                'trait'         => PHPParser_Parser::T_TRAIT,
-                '__trait__'     => PHPParser_Parser::T_TRAIT_C,
-            ),
-            '5.3.0-dev' => array(
-                '__dir__'       => PHPParser_Parser::T_DIR,
-                'goto'          => PHPParser_Parser::T_GOTO,
-                'namespace'     => PHPParser_Parser::T_NAMESPACE,
-                '__namespace__' => PHPParser_Parser::T_NS_C,
-            ),
-        );
+    /** @var TokenEmulator[] */
+    private $emulators = [];
 
-        $this->newKeywords = array();
-        foreach ($newKeywordsPerVersion as $version => $newKeywords) {
-            if (version_compare(PHP_VERSION, $version, '>=')) {
-                break;
+    /** @var string */
+    private $targetPhpVersion;
+
+    /**
+     * @param mixed[] $options Lexer options. In addition to the usual options,
+     *                         accepts a 'phpVersion' string that specifies the
+     *                         version to emulate. Defaults to newest supported.
+     */
+    public function __construct(array $options = [])
+    {
+        $this->targetPhpVersion = $options['phpVersion'] ?? Emulative::PHP_8_2;
+        unset($options['phpVersion']);
+
+        parent::__construct($options);
+
+        $emulators = [
+            new FlexibleDocStringEmulator(),
+            new FnTokenEmulator(),
+            new MatchTokenEmulator(),
+            new CoaleseEqualTokenEmulator(),
+            new NumericLiteralSeparatorEmulator(),
+            new NullsafeTokenEmulator(),
+            new AttributeEmulator(),
+            new EnumTokenEmulator(),
+            new ReadonlyTokenEmulator(),
+            new ExplicitOctalEmulator(),
+            new ReadonlyFunctionTokenEmulator(),
+        ];
+
+        // Collect emulators that are relevant for the PHP version we're running
+        // and the PHP version we're targeting for emulation.
+        foreach ($emulators as $emulator) {
+            $emulatorPhpVersion = $emulator->getPhpVersion();
+            if ($this->isForwardEmulationNeeded($emulatorPhpVersion)) {
+                $this->emulators[] = $emulator;
+            } else if ($this->isReverseEmulationNeeded($emulatorPhpVersion)) {
+                $this->emulators[] = new ReverseEmulator($emulator);
             }
-
-            $this->newKeywords += $newKeywords;
         }
     }
 
-    public function startLexing($code) {
-        $this->inObjectAccess = false;
+    public function startLexing(string $code, ErrorHandler $errorHandler = null) {
+        $emulators = array_filter($this->emulators, function($emulator) use($code) {
+            return $emulator->isEmulationNeeded($code);
+        });
 
-        // on PHP 5.4 don't do anything
-        if (version_compare(PHP_VERSION, '5.4.0RC1', '>=')) {
-            parent::startLexing($code);
-        } else {
-            $code = $this->preprocessCode($code);
-            parent::startLexing($code);
-            $this->postprocessTokens();
+        if (empty($emulators)) {
+            // Nothing to emulate, yay
+            parent::startLexing($code, $errorHandler);
+            return;
+        }
+
+        $this->patches = [];
+        foreach ($emulators as $emulator) {
+            $code = $emulator->preprocessCode($code, $this->patches);
+        }
+
+        $collector = new ErrorHandler\Collecting();
+        parent::startLexing($code, $collector);
+        $this->sortPatches();
+        $this->fixupTokens();
+
+        $errors = $collector->getErrors();
+        if (!empty($errors)) {
+            $this->fixupErrors($errors);
+            foreach ($errors as $error) {
+                $errorHandler->handleError($error);
+            }
+        }
+
+        foreach ($emulators as $emulator) {
+            $this->tokens = $emulator->emulate($code, $this->tokens);
         }
     }
 
-    /*
-     * Replaces new features in the code by ~__EMU__{NAME}__{DATA}__~ sequences.
-     * ~LABEL~ is never valid PHP code, that's why we can (to some degree) safely
-     * use it here.
-     * Later when preprocessing the tokens these sequences will either be replaced
-     * by real tokens or replaced with their original content (e.g. if they occured
-     * inside a string, i.e. a place where they don't have a special meaning).
-     */
-    protected function preprocessCode($code) {
-        // binary notation (0b010101101001...)
-        $code = preg_replace('(\b0b[01]+\b)', '~__EMU__BINARY__$0__~', $code);
+    private function isForwardEmulationNeeded(string $emulatorPhpVersion): bool {
+        return version_compare(\PHP_VERSION, $emulatorPhpVersion, '<')
+            && version_compare($this->targetPhpVersion, $emulatorPhpVersion, '>=');
+    }
 
-        if (version_compare(PHP_VERSION, '5.3.0', '<')) {
-            // namespace separator (backslash not followed by some special characters,
-            // which are not valid after a NS separator, but would cause problems with
-            // escape sequence parsing if one would replace the backslash there)
-            $code = preg_replace('(\\\\(?!["\'`${\\\\]))', '~__EMU__NS__~', $code);
+    private function isReverseEmulationNeeded(string $emulatorPhpVersion): bool {
+        return version_compare(\PHP_VERSION, $emulatorPhpVersion, '>=')
+            && version_compare($this->targetPhpVersion, $emulatorPhpVersion, '<');
+    }
 
-            // nowdoc (<<<'ABC'\ncontent\nABC;)
-            $code = preg_replace_callback(
-                '((*BSR_ANYCRLF)        # set \R to (?>\r\n|\r|\n)
-                  (b?<<<[\t ]*\'([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)\'\R) # opening token
-                  ((?:(?!\2;?\R).*\R)*) # content
-                  (\2)                  # closing token
-                  (?=;?\R)              # must be followed by newline (with optional semicolon)
-                 )x',
-                array($this, 'encodeNowdocCallback'),
-                $code
-            );
+    private function sortPatches()
+    {
+        // Patches may be contributed by different emulators.
+        // Make sure they are sorted by increasing patch position.
+        usort($this->patches, function($p1, $p2) {
+            return $p1[0] <=> $p2[0];
+        });
+    }
+
+    private function fixupTokens()
+    {
+        if (\count($this->patches) === 0) {
+            return;
         }
 
-        return $code;
-    }
+        // Load first patch
+        $patchIdx = 0;
 
-    /*
-     * As nowdocs can have arbitrary content but LABELs can only contain a certain
-     * range of characters, the nowdoc content is encoded as hex and separated by
-     * 'x' tokens. So the result of the encoding will look like this:
-     * ~__EMU__NOWDOC__{HEX(START_TOKEN)}x{HEX(CONTENT)}x{HEX(END_TOKEN)}~
-     */
-    public function encodeNowdocCallback(array $matches) {
-        return '~__EMU__NOWDOC__'
-                . bin2hex($matches[1]) . 'x' . bin2hex($matches[3]) . 'x' . bin2hex($matches[4])
-                . '__~';
-    }
+        list($patchPos, $patchType, $patchText) = $this->patches[$patchIdx];
 
-    /*
-     * Replaces the ~__EMU__...~ sequences with real tokens or their original
-     * value.
-     */
-    protected function postprocessTokens() {
-        // we need to manually iterate and manage a count because we'll change
-        // the tokens array on the way
-        for ($i = 0, $c = count($this->tokens); $i < $c; ++$i) {
-            // first check that the following tokens are form ~LABEL~,
-            // then match the __EMU__... sequence.
-            if ('~' === $this->tokens[$i]
-                && isset($this->tokens[$i + 2])
-                && '~' === $this->tokens[$i + 2]
-                && T_STRING === $this->tokens[$i + 1][0]
-                && preg_match('(^__EMU__([A-Z]++)__(?:([A-Za-z0-9]++)__)?$)', $this->tokens[$i + 1][1], $matches)
-            ) {
-                if ('BINARY' === $matches[1]) {
-                    // the binary number can either be an integer or a double, so return a LNUMBER
-                    // or DNUMBER respectively
-                    $replace = array(
-                        array(is_int(bindec($matches[2])) ? T_LNUMBER : T_DNUMBER, $matches[2], $this->tokens[$i + 1][2])
-                    );
-                } elseif ('NS' === $matches[1]) {
-                    // a \ single char token is returned here and replaced by a
-                    // PHPParser_Parser::T_NS_SEPARATOR token in ->getNextToken(). This hacks around
-                    // the limitations arising from T_NS_SEPARATOR not being defined on 5.3
-                    $replace = array('\\');
-                } elseif ('NOWDOC' === $matches[1]) {
-                    // decode the encoded nowdoc payload; pack('H*' is bin2hex( for 5.3
-                    list($start, $content, $end) = explode('x', $matches[2]);
-                    list($start, $content, $end) = array(pack('H*', $start), pack('H*', $content), pack('H*', $end));
+        // We use a manual loop over the tokens, because we modify the array on the fly
+        $pos = 0;
+        for ($i = 0, $c = \count($this->tokens); $i < $c; $i++) {
+            $token = $this->tokens[$i];
+            if (\is_string($token)) {
+                if ($patchPos === $pos) {
+                    // Only support replacement for string tokens.
+                    assert($patchType === 'replace');
+                    $this->tokens[$i] = $patchText;
 
-                    $replace = array();
-                    $replace[] = array(T_START_HEREDOC, $start, $this->tokens[$i + 1][2]);
-                    if ('' !== $content) {
-                        $replace[] = array(T_ENCAPSED_AND_WHITESPACE, $content, -1);
+                    // Fetch the next patch
+                    $patchIdx++;
+                    if ($patchIdx >= \count($this->patches)) {
+                        // No more patches, we're done
+                        return;
                     }
-                    $replace[] = array(T_END_HEREDOC, $end, -1);
-                } else {
-                    // just ignore all other __EMU__ sequences
-                    continue;
+                    list($patchPos, $patchType, $patchText) = $this->patches[$patchIdx];
                 }
 
-                array_splice($this->tokens, $i, 3, $replace);
-                $c -= 3 - count($replace);
-            // for multichar tokens (e.g. strings) replace any ~__EMU__...~ sequences
-            // in their content with the original character sequence
-            } elseif (is_array($this->tokens[$i])
-                      && 0 !== strpos($this->tokens[$i][1], '__EMU__')
-            ) {
-                $this->tokens[$i][1] = preg_replace_callback(
-                    '(~__EMU__([A-Z]++)__(?:([A-Za-z0-9]++)__)?~)',
-                    array($this, 'restoreContentCallback'),
-                    $this->tokens[$i][1]
-                );
+                $pos += \strlen($token);
+                continue;
             }
+
+            $len = \strlen($token[1]);
+            $posDelta = 0;
+            while ($patchPos >= $pos && $patchPos < $pos + $len) {
+                $patchTextLen = \strlen($patchText);
+                if ($patchType === 'remove') {
+                    if ($patchPos === $pos && $patchTextLen === $len) {
+                        // Remove token entirely
+                        array_splice($this->tokens, $i, 1, []);
+                        $i--;
+                        $c--;
+                    } else {
+                        // Remove from token string
+                        $this->tokens[$i][1] = substr_replace(
+                            $token[1], '', $patchPos - $pos + $posDelta, $patchTextLen
+                        );
+                        $posDelta -= $patchTextLen;
+                    }
+                } elseif ($patchType === 'add') {
+                    // Insert into the token string
+                    $this->tokens[$i][1] = substr_replace(
+                        $token[1], $patchText, $patchPos - $pos + $posDelta, 0
+                    );
+                    $posDelta += $patchTextLen;
+                } else if ($patchType === 'replace') {
+                    // Replace inside the token string
+                    $this->tokens[$i][1] = substr_replace(
+                        $token[1], $patchText, $patchPos - $pos + $posDelta, $patchTextLen
+                    );
+                } else {
+                    assert(false);
+                }
+
+                // Fetch the next patch
+                $patchIdx++;
+                if ($patchIdx >= \count($this->patches)) {
+                    // No more patches, we're done
+                    return;
+                }
+
+                list($patchPos, $patchType, $patchText) = $this->patches[$patchIdx];
+
+                // Multiple patches may apply to the same token. Reload the current one to check
+                // If the new patch applies
+                $token = $this->tokens[$i];
+            }
+
+            $pos += $len;
         }
+
+        // A patch did not apply
+        assert(false);
     }
 
-    /*
-     * This method is a callback for restoring EMU sequences in
-     * multichar tokens (like strings) to their original value.
+    /**
+     * Fixup line and position information in errors.
+     *
+     * @param Error[] $errors
      */
-    public function restoreContentCallback(array $matches) {
-        if ('BINARY' === $matches[1]) {
-            return $matches[2];
-        } elseif ('NS' === $matches[1]) {
-            return '\\';
-        } elseif ('NOWDOC' === $matches[1]) {
-            list($start, $content, $end) = explode('x', $matches[2]);
-            return pack('H*', $start) . pack('H*', $content) . pack('H*', $end);
-        } else {
-            return $matches[0];
-        }
-    }
+    private function fixupErrors(array $errors) {
+        foreach ($errors as $error) {
+            $attrs = $error->getAttributes();
 
-    public function getNextToken(&$value = null, &$startAttributes = null, &$endAttributes = null) {
-        $token = parent::getNextToken($value, $startAttributes, $endAttributes);
+            $posDelta = 0;
+            $lineDelta = 0;
+            foreach ($this->patches as $patch) {
+                list($patchPos, $patchType, $patchText) = $patch;
+                if ($patchPos >= $attrs['startFilePos']) {
+                    // No longer relevant
+                    break;
+                }
 
-        // replace new keywords by their respective tokens. This is not done
-        // if we currently are in an object access (e.g. in $obj->namespace
-        // "namespace" stays a T_STRING tokens and isn't converted to T_NAMESPACE)
-        if (PHPParser_Parser::T_STRING === $token && !$this->inObjectAccess) {
-            if (isset($this->newKeywords[strtolower($value)])) {
-                return $this->newKeywords[strtolower($value)];
+                if ($patchType === 'add') {
+                    $posDelta += strlen($patchText);
+                    $lineDelta += substr_count($patchText, "\n");
+                } else if ($patchType === 'remove') {
+                    $posDelta -= strlen($patchText);
+                    $lineDelta -= substr_count($patchText, "\n");
+                }
             }
-        // backslashes are replaced by T_NS_SEPARATOR tokens
-        } elseif (92 === $token) { // ord('\\')
-            return PHPParser_Parser::T_NS_SEPARATOR;
-        // keep track of whether we currently are in an object access (after ->)
-        } elseif (PHPParser_Parser::T_OBJECT_OPERATOR === $token) {
-            $this->inObjectAccess = true;
-        } else {
-            $this->inObjectAccess = false;
-        }
 
-        return $token;
+            $attrs['startFilePos'] += $posDelta;
+            $attrs['endFilePos'] += $posDelta;
+            $attrs['startLine'] += $lineDelta;
+            $attrs['endLine'] += $lineDelta;
+            $error->setAttributes($attrs);
+        }
     }
 }

@@ -1,31 +1,60 @@
-<?php
+<?php declare(strict_types=1);
 
-/**
- * @property string                          $name    Name
- * @property null|PHPParser_Node_Expr        $default Default value
- * @property null|string|PHPParser_Node_Name $type    Typehint
- * @property bool                            $byRef   Whether is passed by reference
- */
-class PHPParser_Node_Param extends PHPParser_NodeAbstract
+namespace PhpParser\Node;
+
+use PhpParser\NodeAbstract;
+
+class Param extends NodeAbstract
 {
+    /** @var null|Identifier|Name|ComplexType Type declaration */
+    public $type;
+    /** @var bool Whether parameter is passed by reference */
+    public $byRef;
+    /** @var bool Whether this is a variadic argument */
+    public $variadic;
+    /** @var Expr\Variable|Expr\Error Parameter variable */
+    public $var;
+    /** @var null|Expr Default value */
+    public $default;
+    /** @var int */
+    public $flags;
+    /** @var AttributeGroup[] PHP attribute groups */
+    public $attrGroups;
+
     /**
      * Constructs a parameter node.
      *
-     * @param string                          $name       Name
-     * @param null|PHPParser_Node_Expr        $default    Default value
-     * @param null|string|PHPParser_Node_Name $type       Typehint
-     * @param bool                            $byRef      Whether is passed by reference
-     * @param array                           $attributes Additional attributes
+     * @param Expr\Variable|Expr\Error                $var        Parameter variable
+     * @param null|Expr                               $default    Default value
+     * @param null|string|Identifier|Name|ComplexType $type       Type declaration
+     * @param bool                                    $byRef      Whether is passed by reference
+     * @param bool                                    $variadic   Whether this is a variadic argument
+     * @param array                                   $attributes Additional attributes
+     * @param int                                     $flags      Optional visibility flags
+     * @param AttributeGroup[]                        $attrGroups PHP attribute groups
      */
-    public function __construct($name, $default = null, $type = null, $byRef = false, array $attributes = array()) {
-        parent::__construct(
-            array(
-                'name'    => $name,
-                'default' => $default,
-                'type'    => $type,
-                'byRef'   => $byRef
-            ),
-            $attributes
-        );
+    public function __construct(
+        $var, Expr $default = null, $type = null,
+        bool $byRef = false, bool $variadic = false,
+        array $attributes = [],
+        int $flags = 0,
+        array $attrGroups = []
+    ) {
+        $this->attributes = $attributes;
+        $this->type = \is_string($type) ? new Identifier($type) : $type;
+        $this->byRef = $byRef;
+        $this->variadic = $variadic;
+        $this->var = $var;
+        $this->default = $default;
+        $this->flags = $flags;
+        $this->attrGroups = $attrGroups;
+    }
+
+    public function getSubNodeNames() : array {
+        return ['attrGroups', 'flags', 'type', 'byRef', 'variadic', 'var', 'default'];
+    }
+
+    public function getType() : string {
+        return 'Param';
     }
 }

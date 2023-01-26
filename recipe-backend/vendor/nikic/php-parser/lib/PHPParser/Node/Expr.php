@@ -1,5 +1,9 @@
-<?php
+<?php declare(strict_types=1);
 
-abstract class PHPParser_Node_Expr extends PHPParser_NodeAbstract
+namespace PhpParser\Node;
+
+use PhpParser\NodeAbstract;
+
+abstract class Expr extends NodeAbstract
 {
 }

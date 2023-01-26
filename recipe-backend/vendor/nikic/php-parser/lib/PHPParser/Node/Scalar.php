@@ -1,5 +1,7 @@
-<?php
+<?php declare(strict_types=1);
 
-abstract class PHPParser_Node_Scalar extends PHPParser_Node_Expr
+namespace PhpParser\Node;
+
+abstract class Scalar extends Expr
 {
 }

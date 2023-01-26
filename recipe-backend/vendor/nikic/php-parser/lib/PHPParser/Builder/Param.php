@@ -1,24 +1,34 @@
-<?php
+<?php declare(strict_types=1);
 
-class PHPParser_Builder_Param extends PHPParser_BuilderAbstract
+namespace PhpParser\Builder;
+
+use PhpParser;
+use PhpParser\BuilderHelpers;
+use PhpParser\Node;
+
+class Param implements PhpParser\Builder
 {
     protected $name;
 
-    protected $default;
-    protected $type;
-    protected $byRef;
+    protected $default = null;
+
+    /** @var Node\Identifier|Node\Name|Node\NullableType|null */
+    protected $type = null;
+
+    protected $byRef = false;
+
+    protected $variadic = false;
+
+    /** @var Node\AttributeGroup[] */
+    protected $attributeGroups = [];
 
     /**
      * Creates a parameter builder.
      *
      * @param string $name Name of the parameter
      */
-    public function __construct($name) {
+    public function __construct(string $name) {
         $this->name = $name;
-
-        $this->default = null;
-        $this->type = null;
-        $this->byRef = false;
     }
 
     /**
@@ -26,35 +36,47 @@ class PHPParser_Builder_Param extends PHPParser_BuilderAbstract
      *
      * @param mixed $value Default value to use
      *
-     * @return PHPParser_Builder_Param The builder instance (for fluid interface)
+     * @return $this The builder instance (for fluid interface)
      */
     public function setDefault($value) {
-        $this->default = $this->normalizeValue($value);
+        $this->default = BuilderHelpers::normalizeValue($value);
 
         return $this;
     }
 
     /**
-     * Sets type hint for the parameter.
+     * Sets type for the parameter.
      *
-     * @param string|PHPParser_Node_Name $type Type hint to use
+     * @param string|Node\Name|Node\Identifier|Node\ComplexType $type Parameter type
      *
-     * @return PHPParser_Builder_Param The builder instance (for fluid interface)
+     * @return $this The builder instance (for fluid interface)
      */
-    public function setTypeHint($type) {
-        if ($type === 'array' || $type === 'callable') {
-            $this->type = $type;
-        } else {
-            $this->type = $this->normalizeName($type);
+    public function setType($type) {
+        $this->type = BuilderHelpers::normalizeType($type);
+        if ($this->type == 'void') {
+            throw new \LogicException('Parameter type cannot be void');
         }
 
         return $this;
     }
 
     /**
+     * Sets type for the parameter.
+     *
+     * @param string|Node\Name|Node\Identifier|Node\ComplexType $type Parameter type
+     *
+     * @return $this The builder instance (for fluid interface)
+     *
+     * @deprecated Use setType() instead
+     */
+    public function setTypeHint($type) {
+        return $this->setType($type);
+    }
+
+    /**
      * Make the parameter accept the value by reference.
      *
-     * @return PHPParser_Builder_Param The builder instance (for fluid interface)
+     * @return $this The builder instance (for fluid interface)
      */
     public function makeByRef() {
         $this->byRef = true;
@@ -63,13 +85,38 @@ class PHPParser_Builder_Param extends PHPParser_BuilderAbstract
     }
 
     /**
+     * Make the parameter variadic
+     *
+     * @return $this The builder instance (for fluid interface)
+     */
+    public function makeVariadic() {
+        $this->variadic = true;
+
+        return $this;
+    }
+
+    /**
+     * Adds an attribute group.
+     *
+     * @param Node\Attribute|Node\AttributeGroup $attribute
+     *
+     * @return $this The builder instance (for fluid interface)
+     */
+    public function addAttribute($attribute) {
+        $this->attributeGroups[] = BuilderHelpers::normalizeAttribute($attribute);
+
+        return $this;
+    }
+
+    /**
      * Returns the built parameter node.
      *
-     * @return PHPParser_Node_Param The built parameter node
+     * @return Node\Param The built parameter node
      */
-    public function getNode() {
-        return new PHPParser_Node_Param(
-            $this->name, $this->default, $this->type, $this->byRef
+    public function getNode() : Node {
+        return new Node\Param(
+            new Node\Expr\Variable($this->name),
+            $this->default, $this->type, $this->byRef, $this->variadic, [], 0, $this->attributeGroups
         );
     }
 }

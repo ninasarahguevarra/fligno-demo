@@ -1,35 +1,79 @@
-<?php
+<?php declare(strict_types=1);
 
-/**
- * @property PHPParser_Node[]                 $stmts  Statements
- * @property PHPParser_Node_Param[]           $params Parameters
- * @property PHPParser_Node_Expr_ClosureUse[] $uses   use()s
- * @property bool                             $byRef  Whether to return by reference
- * @property bool                             $static Whether the closure is static
- */
-class PHPParser_Node_Expr_Closure extends PHPParser_Node_Expr
+namespace PhpParser\Node\Expr;
+
+use PhpParser\Node;
+use PhpParser\Node\Expr;
+use PhpParser\Node\FunctionLike;
+
+class Closure extends Expr implements FunctionLike
 {
+    /** @var bool Whether the closure is static */
+    public $static;
+    /** @var bool Whether to return by reference */
+    public $byRef;
+    /** @var Node\Param[] Parameters */
+    public $params;
+    /** @var ClosureUse[] use()s */
+    public $uses;
+    /** @var null|Node\Identifier|Node\Name|Node\ComplexType Return type */
+    public $returnType;
+    /** @var Node\Stmt[] Statements */
+    public $stmts;
+    /** @var Node\AttributeGroup[] PHP attribute groups */
+    public $attrGroups;
+
     /**
      * Constructs a lambda function node.
      *
      * @param array $subNodes   Array of the following optional subnodes:
-     *                          'stmts'  => array(): Statements
-     *                          'params' => array(): Parameters
-     *                          'uses'   => array(): use()s
-     *                          'byRef'  => false  : Whether to return by reference
-     *                          'static' => false  : Whether the closure is static
+     *                          'static'     => false  : Whether the closure is static
+     *                          'byRef'      => false  : Whether to return by reference
+     *                          'params'     => array(): Parameters
+     *                          'uses'       => array(): use()s
+     *                          'returnType' => null   : Return type
+     *                          'stmts'      => array(): Statements
+     *                          'attrGroups' => array(): PHP attributes groups
      * @param array $attributes Additional attributes
      */
-    public function __construct(array $subNodes = array(), array $attributes = array()) {
-        parent::__construct(
-            $subNodes + array(
-                'stmts'  => array(),
-                'params' => array(),
-                'uses'   => array(),
-                'byRef'  => false,
-                'static' => false,
-            ),
-            $attributes
-        );
+    public function __construct(array $subNodes = [], array $attributes = []) {
+        $this->attributes = $attributes;
+        $this->static = $subNodes['static'] ?? false;
+        $this->byRef = $subNodes['byRef'] ?? false;
+        $this->params = $subNodes['params'] ?? [];
+        $this->uses = $subNodes['uses'] ?? [];
+        $returnType = $subNodes['returnType'] ?? null;
+        $this->returnType = \is_string($returnType) ? new Node\Identifier($returnType) : $returnType;
+        $this->stmts = $subNodes['stmts'] ?? [];
+        $this->attrGroups = $subNodes['attrGroups'] ?? [];
+    }
+
+    public function getSubNodeNames() : array {
+        return ['attrGroups', 'static', 'byRef', 'params', 'uses', 'returnType', 'stmts'];
+    }
+
+    public function returnsByRef() : bool {
+        return $this->byRef;
+    }
+
+    public function getParams() : array {
+        return $this->params;
+    }
+
+    public function getReturnType() {
+        return $this->returnType;
+    }
+
+    /** @return Node\Stmt[] */
+    public function getStmts() : array {
+        return $this->stmts;
+    }
+
+    public function getAttrGroups() : array {
+        return $this->attrGroups;
+    }
+
+    public function getType() : string {
+        return 'Expr_Closure';
     }
 }

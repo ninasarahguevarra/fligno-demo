@@ -1,125 +1,178 @@
-<?php
+<?php declare(strict_types=1);
 
-abstract class PHPParser_NodeAbstract implements PHPParser_Node, IteratorAggregate
+namespace PhpParser;
+
+abstract class NodeAbstract implements Node, \JsonSerializable
 {
-    protected $subNodes;
     protected $attributes;
 
     /**
      * Creates a Node.
      *
-     * @param array $subNodes   Array of sub nodes
      * @param array $attributes Array of attributes
      */
-    public function __construct(array $subNodes = array(), array $attributes = array()) {
-        $this->subNodes   = $subNodes;
+    public function __construct(array $attributes = []) {
         $this->attributes = $attributes;
     }
 
     /**
-     * Gets the type of the node.
+     * Gets line the node started in (alias of getStartLine).
      *
-     * @return string Type of the node
+     * @return int Start line (or -1 if not available)
      */
-    public function getType() {
-        return substr(get_class($this), 15);
-    }
-
-    /**
-     * Gets the names of the sub nodes.
-     *
-     * @return array Names of sub nodes
-     */
-    public function getSubNodeNames() {
-        return array_keys($this->subNodes);
+    public function getLine() : int {
+        return $this->attributes['startLine'] ?? -1;
     }
 
     /**
      * Gets line the node started in.
      *
-     * @return int Line
+     * Requires the 'startLine' attribute to be enabled in the lexer (enabled by default).
+     *
+     * @return int Start line (or -1 if not available)
      */
-    public function getLine() {
-        return $this->getAttribute('startLine', -1);
+    public function getStartLine() : int {
+        return $this->attributes['startLine'] ?? -1;
     }
 
     /**
-     * Sets line the node started in.
+     * Gets the line the node ended in.
      *
-     * @param int $line Line
+     * Requires the 'endLine' attribute to be enabled in the lexer (enabled by default).
+     *
+     * @return int End line (or -1 if not available)
      */
-    public function setLine($line) {
-        $this->setAttribute('startLine', (int) $line);
+    public function getEndLine() : int {
+        return $this->attributes['endLine'] ?? -1;
+    }
+
+    /**
+     * Gets the token offset of the first token that is part of this node.
+     *
+     * The offset is an index into the array returned by Lexer::getTokens().
+     *
+     * Requires the 'startTokenPos' attribute to be enabled in the lexer (DISABLED by default).
+     *
+     * @return int Token start position (or -1 if not available)
+     */
+    public function getStartTokenPos() : int {
+        return $this->attributes['startTokenPos'] ?? -1;
+    }
+
+    /**
+     * Gets the token offset of the last token that is part of this node.
+     *
+     * The offset is an index into the array returned by Lexer::getTokens().
+     *
+     * Requires the 'endTokenPos' attribute to be enabled in the lexer (DISABLED by default).
+     *
+     * @return int Token end position (or -1 if not available)
+     */
+    public function getEndTokenPos() : int {
+        return $this->attributes['endTokenPos'] ?? -1;
+    }
+
+    /**
+     * Gets the file offset of the first character that is part of this node.
+     *
+     * Requires the 'startFilePos' attribute to be enabled in the lexer (DISABLED by default).
+     *
+     * @return int File start position (or -1 if not available)
+     */
+    public function getStartFilePos() : int {
+        return $this->attributes['startFilePos'] ?? -1;
+    }
+
+    /**
+     * Gets the file offset of the last character that is part of this node.
+     *
+     * Requires the 'endFilePos' attribute to be enabled in the lexer (DISABLED by default).
+     *
+     * @return int File end position (or -1 if not available)
+     */
+    public function getEndFilePos() : int {
+        return $this->attributes['endFilePos'] ?? -1;
+    }
+
+    /**
+     * Gets all comments directly preceding this node.
+     *
+     * The comments are also available through the "comments" attribute.
+     *
+     * @return Comment[]
+     */
+    public function getComments() : array {
+        return $this->attributes['comments'] ?? [];
     }
 
     /**
      * Gets the doc comment of the node.
      *
-     * The doc comment has to be the last comment associated with the node.
-     *
-     * @return null|PHPParser_Comment_Doc Doc comment object or null
+     * @return null|Comment\Doc Doc comment object or null
      */
     public function getDocComment() {
-        $comments = $this->getAttribute('comments');
-        if (!$comments) {
-            return null;
+        $comments = $this->getComments();
+        for ($i = count($comments) - 1; $i >= 0; $i--) {
+            $comment = $comments[$i];
+            if ($comment instanceof Comment\Doc) {
+                return $comment;
+            }
         }
 
-        $lastComment = $comments[count($comments) - 1];
-        if (!$lastComment instanceof PHPParser_Comment_Doc) {
-            return null;
-        }
-
-        return $lastComment;
+        return null;
     }
 
     /**
-     * {@inheritDoc}
+     * Sets the doc comment of the node.
+     *
+     * This will either replace an existing doc comment or add it to the comments array.
+     *
+     * @param Comment\Doc $docComment Doc comment to set
      */
-    public function setAttribute($key, $value) {
+    public function setDocComment(Comment\Doc $docComment) {
+        $comments = $this->getComments();
+        for ($i = count($comments) - 1; $i >= 0; $i--) {
+            if ($comments[$i] instanceof Comment\Doc) {
+                // Replace existing doc comment.
+                $comments[$i] = $docComment;
+                $this->setAttribute('comments', $comments);
+                return;
+            }
+        }
+
+        // Append new doc comment.
+        $comments[] = $docComment;
+        $this->setAttribute('comments', $comments);
+    }
+
+    public function setAttribute(string $key, $value) {
         $this->attributes[$key] = $value;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    public function hasAttribute($key) {
+    public function hasAttribute(string $key) : bool {
         return array_key_exists($key, $this->attributes);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    public function &getAttribute($key, $default = null) {
-        if (!array_key_exists($key, $this->attributes)) {
-            return $default;
-        } else {
+    public function getAttribute(string $key, $default = null) {
+        if (array_key_exists($key, $this->attributes)) {
             return $this->attributes[$key];
         }
+
+        return $default;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    public function getAttributes() {
+    public function getAttributes() : array {
         return $this->attributes;
     }
 
-    /* Magic interfaces */
+    public function setAttributes(array $attributes) {
+        $this->attributes = $attributes;
+    }
 
-    public function &__get($name) {
-        return $this->subNodes[$name];
-    }
-    public function __set($name, $value) {
-        $this->subNodes[$name] = $value;
-    }
-    public function __isset($name) {
-        return isset($this->subNodes[$name]);
-    }
-    public function __unset($name) {
-        unset($this->subNodes[$name]);
-    }
-    public function getIterator() {
-        return new ArrayIterator($this->subNodes);
+    /**
+     * @return array
+     */
+    public function jsonSerialize() : array {
+        return ['nodeType' => $this->getType()] + get_object_vars($this);
     }
 }
