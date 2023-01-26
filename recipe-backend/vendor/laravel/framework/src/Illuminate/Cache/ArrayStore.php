@@ -1,108 +1,218 @@
-<?php namespace Illuminate\Cache;
+<?php
 
-class ArrayStore extends TaggableStore implements StoreInterface {
+namespace Illuminate\Cache;
 
-	/**
-	 * The array of stored values.
-	 *
-	 * @var array
-	 */
-	protected $storage = array();
+use Illuminate\Contracts\Cache\LockProvider;
+use Illuminate\Support\InteractsWithTime;
 
-	/**
-	 * Retrieve an item from the cache by key.
-	 *
-	 * @param  string  $key
-	 * @return mixed
-	 */
-	public function get($key)
-	{
-		if (array_key_exists($key, $this->storage))
-		{
-			return $this->storage[$key];
-		}
-	}
+class ArrayStore extends TaggableStore implements LockProvider
+{
+    use InteractsWithTime, RetrievesMultipleKeys;
 
-	/**
-	 * Store an item in the cache for a given number of minutes.
-	 *
-	 * @param  string  $key
-	 * @param  mixed   $value
-	 * @param  int     $minutes
-	 * @return void
-	 */
-	public function put($key, $value, $minutes)
-	{
-		$this->storage[$key] = $value;
-	}
+    /**
+     * The array of stored values.
+     *
+     * @var array
+     */
+    protected $storage = [];
 
-	/**
-	 * Increment the value of an item in the cache.
-	 *
-	 * @param  string  $key
-	 * @param  mixed   $value
-	 * @return int
-	 */
-	public function increment($key, $value = 1)
-	{
-		$this->storage[$key] = $this->storage[$key] + $value;
+    /**
+     * The array of locks.
+     *
+     * @var array
+     */
+    public $locks = [];
 
-		return $this->storage[$key];
-	}
+    /**
+     * Indicates if values are serialized within the store.
+     *
+     * @var bool
+     */
+    protected $serializesValues;
 
-	/**
-	 * Increment the value of an item in the cache.
-	 *
-	 * @param  string  $key
-	 * @param  mixed   $value
-	 * @return int
-	 */
-	public function decrement($key, $value = 1)
-	{
-		return $this->increment($key, $value * -1);
-	}
+    /**
+     * Create a new Array store.
+     *
+     * @param  bool  $serializesValues
+     * @return void
+     */
+    public function __construct($serializesValues = false)
+    {
+        $this->serializesValues = $serializesValues;
+    }
 
-	/**
-	 * Store an item in the cache indefinitely.
-	 *
-	 * @param  string  $key
-	 * @param  mixed   $value
-	 * @return void
-	 */
-	public function forever($key, $value)
-	{
-		return $this->put($key, $value, 0);
-	}
+    /**
+     * Retrieve an item from the cache by key.
+     *
+     * @param  string|array  $key
+     * @return mixed
+     */
+    public function get($key)
+    {
+        if (! isset($this->storage[$key])) {
+            return;
+        }
 
-	/**
-	 * Remove an item from the cache.
-	 *
-	 * @param  string  $key
-	 * @return void
-	 */
-	public function forget($key)
-	{
-		unset($this->storage[$key]);
-	}
+        $item = $this->storage[$key];
 
-	/**
-	 * Remove all items from the cache.
-	 *
-	 * @return void
-	 */
-	public function flush()
-	{
-		$this->storage = array();
-	}
+        $expiresAt = $item['expiresAt'] ?? 0;
 
-	/**
-	 * Get the cache key prefix.
-	 *
-	 * @return string
-	 */
-	public function getPrefix()
-	{
-		return '';
-	}
+        if ($expiresAt !== 0 && $this->currentTime() > $expiresAt) {
+            $this->forget($key);
 
+            return;
+        }
+
+        return $this->serializesValues ? unserialize($item['value']) : $item['value'];
+    }
+
+    /**
+     * Store an item in the cache for a given number of seconds.
+     *
+     * @param  string  $key
+     * @param  mixed  $value
+     * @param  int  $seconds
+     * @return bool
+     */
+    public function put($key, $value, $seconds)
+    {
+        $this->storage[$key] = [
+            'value' => $this->serializesValues ? serialize($value) : $value,
+            'expiresAt' => $this->calculateExpiration($seconds),
+        ];
+
+        return true;
+    }
+
+    /**
+     * Increment the value of an item in the cache.
+     *
+     * @param  string  $key
+     * @param  mixed  $value
+     * @return int
+     */
+    public function increment($key, $value = 1)
+    {
+        if (! is_null($existing = $this->get($key))) {
+            return tap(((int) $existing) + $value, function ($incremented) use ($key) {
+                $value = $this->serializesValues ? serialize($incremented) : $incremented;
+
+                $this->storage[$key]['value'] = $value;
+            });
+        }
+
+        $this->forever($key, $value);
+
+        return $value;
+    }
+
+    /**
+     * Decrement the value of an item in the cache.
+     *
+     * @param  string  $key
+     * @param  mixed  $value
+     * @return int
+     */
+    public function decrement($key, $value = 1)
+    {
+        return $this->increment($key, $value * -1);
+    }
+
+    /**
+     * Store an item in the cache indefinitely.
+     *
+     * @param  string  $key
+     * @param  mixed  $value
+     * @return bool
+     */
+    public function forever($key, $value)
+    {
+        return $this->put($key, $value, 0);
+    }
+
+    /**
+     * Remove an item from the cache.
+     *
+     * @param  string  $key
+     * @return bool
+     */
+    public function forget($key)
+    {
+        if (array_key_exists($key, $this->storage)) {
+            unset($this->storage[$key]);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Remove all items from the cache.
+     *
+     * @return bool
+     */
+    public function flush()
+    {
+        $this->storage = [];
+
+        return true;
+    }
+
+    /**
+     * Get the cache key prefix.
+     *
+     * @return string
+     */
+    public function getPrefix()
+    {
+        return '';
+    }
+
+    /**
+     * Get the expiration time of the key.
+     *
+     * @param  int  $seconds
+     * @return int
+     */
+    protected function calculateExpiration($seconds)
+    {
+        return $this->toTimestamp($seconds);
+    }
+
+    /**
+     * Get the UNIX timestamp for the given number of seconds.
+     *
+     * @param  int  $seconds
+     * @return int
+     */
+    protected function toTimestamp($seconds)
+    {
+        return $seconds > 0 ? $this->availableAt($seconds) : 0;
+    }
+
+    /**
+     * Get a lock instance.
+     *
+     * @param  string  $name
+     * @param  int  $seconds
+     * @param  string|null  $owner
+     * @return \Illuminate\Contracts\Cache\Lock
+     */
+    public function lock($name, $seconds = 0, $owner = null)
+    {
+        return new ArrayLock($this, $name, $seconds, $owner);
+    }
+
+    /**
+     * Restore a lock instance using the owner identifier.
+     *
+     * @param  string  $name
+     * @param  string  $owner
+     * @return \Illuminate\Contracts\Cache\Lock
+     */
+    public function restoreLock($name, $owner)
+    {
+        return $this->lock($name, 0, $owner);
+    }
 }
