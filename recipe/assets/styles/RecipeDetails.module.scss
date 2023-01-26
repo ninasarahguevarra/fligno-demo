@@ -1,0 +1,18 @@
+.button-wrapper {
+    @apply flex justify-between;
+}
+.wrapper {
+    h5 {
+       @apply font-medium mb-2; 
+    }
+    p {
+        @apply text-sm;
+    }
+    span {
+        @apply font-medium text-primary;
+    }
+}
+
+.grid-class {
+    @apply grid md:grid-cols-3 grid-cols-1 gap-4;
+}

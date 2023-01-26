@@ -40,25 +40,25 @@ export const AuthSlice = createSlice({
                 state.loginResponse = authPayload.loginResponse;
             })
 
-            .addCase(postAuthentication.pending, (state, action) => {
+            .addCase(postAuthentication.pending, (state) => {
                 state.isLoading = true;
             })
             .addCase(postAuthentication.fulfilled, (state, action) => {
                 state.loginResponse = action.payload;
                 state.isLoading = false;
             })
-            .addCase(postAuthentication.rejected, (state, action) => {
+            .addCase(postAuthentication.rejected, (state) => {
                 state.isLoading = false;
             })
 
-            .addCase(postRegistration.pending, (state, action) => {
+            .addCase(postRegistration.pending, (state) => {
                 state.isLoading = true;
             })
             .addCase(postRegistration.fulfilled, (state, action) => {
                 state.registrationResponse = action.payload;
                 state.isLoading = false;
             })
-            .addCase(postRegistration.rejected, (state, action) => {
+            .addCase(postRegistration.rejected, (state) => {
                 state.isLoading = false;
             });
     },

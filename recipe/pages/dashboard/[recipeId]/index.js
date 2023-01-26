@@ -1,56 +1,60 @@
 import { useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { jsPDF } from "jspdf";
-// import PDF, { Text, AddPage, Line, Image, Table, Html } from 'jspdf-react'
 import { useRouter } from "next/router";
 import isEmpty from "lodash/isEmpty";
 import round from "lodash/round";
 import Link from "next/link";
-
+import Image from "next/image";
 import { selectRecipeList, getRecipeDetails } from "store/slices/recipeListSlice";
 import DefaultLayout from "components/Layouts/DefaultLayout";
 import ButtonComponent from "components/ButtonComponent";
 import CardComponent from "components/CardComponent";
+import TagComponent from "components/TagComponent";
+import RecipeContentComponent from "components/RecipeContentComponent";
+import styles from "assets/styles/RecipeDetails.module.scss";
 
 const RecipeDetails = () => {
     const dispatch = useDispatch();
-    const router = useRouter()
-    const { query } = router
+    const router = useRouter();
+    const { query } = router;
     const { recipeDetails } = useSelector(selectRecipeList);
     const certificateTemplateRef = useRef(null);
     const handleGeneratePdf = () => {
         const doc = new jsPDF({
             orientation: "portrait",
             format: "a4",
-            unit: "px",
+            unit: "px"
         });
-    
+
         // Adding the fonts
         doc.setFont("Anton-Regular", "normal");
-    
+
         doc.html(certificateTemplateRef.current, {
-          async callback(doc) {
-            // save the document as a PDF with name of Recipe
-            doc.save("Recipe");
-          }
+            async callback(doc) {
+                // save the document as a PDF with name of Recipe
+                doc.save("Recipe");
+            }
         });
-      };
+    };
 
     const payload = {
         type: "public",
         diet: "balanced",
         id: query.recipeId,
-        q: "",
+        q: ""
     };
+
     useEffect(() => {
         if (!isEmpty(query) && isEmpty(recipeDetails)) {
             dispatch(getRecipeDetails(payload));
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
 
     return (
         <DefaultLayout>
-            <div className="flex justify-between">
+            <div className={styles["button-wrapper"]}>
                 <ButtonComponent
                     action="button"
                     type="solid"
@@ -67,52 +71,51 @@ const RecipeDetails = () => {
                 />
             </div>
             { !isEmpty(recipeDetails) &&
-                <>
-                    <div ref={certificateTemplateRef} className="flex flex-col items-center">
+                <div ref={certificateTemplateRef} className={styles.wrapper}>
+                    <div className="flex flex-col items-center">
                         <h3 className="my-4">{recipeDetails.recipe.label}</h3>
                         <CardComponent
                             recipe={recipeDetails.recipe}
                             containerClass="w-1/2"
-                            onClick={() => viewRecipe(list)}
+                            imageWrapperHeight="h-56 md:h-80 lg:h-96"
                         />
                     </div>
                     <div className="flex flex-col gap-y-4 mt-6">
+                        <RecipeContentComponent
+                            title="Diet Labels"
+                            items={recipeDetails.recipe.dietLabels}
+                            tagTextColor="text-green-800"
+                            tagBgColor="bg-green-100"
+                        />
+
+                        <RecipeContentComponent
+                            title="Health Labels"
+                            items={recipeDetails.recipe.healthLabels}
+                            tagTextColor="text-yellow-800"
+                            tagBgColor="bg-yellow-100"
+                        />
+
                         <div>
-                            <h5 className="font-medium mb-2">Diet Labels</h5>
-                            <div className="flex gap-2">
-                                { recipeDetails.recipe.dietLabels &&
-                                    recipeDetails.recipe.dietLabels.map((dietLabel, index) => (
-                                        <span key={index} className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-sm font-medium text-green-800">
-                                            {dietLabel}
-                                        </span>
-                                    ))
-                                }
-                            </div>
-                        </div>
-                        <div>
-                            <h5 className="font-medium mb-2">Health Labels</h5>
-                            <div className="flex gap-2 flex-wrap">
-                                { recipeDetails.recipe.healthLabels &&
-                                    recipeDetails.recipe.healthLabels.map((healthLabel, index) => (
-                                        <span key={index} className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-sm font-medium text-yellow-800">
-                                            {healthLabel}
-                                        </span>
-                                    ))
-                                }
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <h5 className="font-medium mb-2">Ingredients</h5>
-                            <div className="grid md:grid-cols-3 grid-cols-1 gap-4">
+                            <h5>Ingredients</h5>
+                            <div className={styles["grid-class"]}>
                                 { recipeDetails.recipe.ingredients &&
                                     recipeDetails.recipe.ingredients.map((ingredient, index) => (
                                         <div key={index} className="flex gap-3">
-                                            <img className="group-hover:opacity-75 h-24 w-24 rounded-md" src={ingredient.image} />
+                                            <Image
+                                                src={ingredient.image}
+                                                className="group-hover:opacity-75"
+                                                height={96}
+                                                width={96}
+                                                priority
+                                                alt={ingredient.text}
+                                            />
                                             <div>
-                                                <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
-                                                    {ingredient.foodCategory}
-                                                </span>
+                                                <TagComponent
+                                                    key={index}
+                                                    label={ingredient.foodCategory}
+                                                    textColor="text-red-800"
+                                                    bgColor="bg-red-100"
+                                                />
                                                 <p className="text-gray-700">{ingredient.text}</p>
                                             </div>
                                         </div>
@@ -120,21 +123,23 @@ const RecipeDetails = () => {
                                 }
                             </div>
                         </div>
+
                         <div>
-                            <h5 className="font-medium mb-2">Nutrition</h5>
-                            <p className="text-sm">Servings: <span className="font-medium text-primary">{recipeDetails.recipe.yield}</span></p>
-                            <p className="text-sm">Calories per serving: <span className="font-medium text-primary">{round(recipeDetails.recipe.calories / recipeDetails.recipe.yield)}</span></p>
+                            <h5>Nutrition</h5>
+                            <p>Servings: <span>{recipeDetails.recipe.yield}</span></p>
+                            <p>Calories per serving: <span>{round(recipeDetails.recipe.calories / recipeDetails.recipe.yield)}</span></p>
                         </div>
+
                         <div>
                             <Link href={recipeDetails.recipe.shareAs} target="_blank" className="text-sm">
-                                More detailed instructions can be found on <span className="font-medium text-primary">{recipeDetails.recipe.source}</span> 
+                                More detailed instructions can be found on <span className="font-medium text-primary">{recipeDetails.recipe.source}</span>
                             </Link>
                         </div>
                     </div>
-                </>
+                </div>
             }
         </DefaultLayout>
-    )
+    );
 };
 
 export default RecipeDetails;

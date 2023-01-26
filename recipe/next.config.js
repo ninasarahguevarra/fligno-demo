@@ -2,10 +2,12 @@
 const nextConfig = {
     reactStrictMode: true,
     swcMinify: true,
-    images: {},
-      exportPathMap: async function ( ) {
-          return {}
-      },
+    images: {
+        domains: ['edamam-product-images.s3.amazonaws.com', 'www.edamam.com'],
+    },
+    exportPathMap: async function ( ) {
+        return {}
+    },
 };
 
 module.exports = nextConfig;

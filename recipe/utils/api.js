@@ -1,15 +1,16 @@
 import axios from "axios";
 import merge from 'lodash/merge'
 import isEmpty from 'lodash/isEmpty'
-// import { useClientToken } from "hooks/authentication/useAuthentication";
+import { Token } from 'utils/enum'
 
-const api = async function (METHOD = "GET", REQUEST_URI = "", PARAMS = {}, authorization = "", headers = {}) {
+const api = async function (METHOD = "GET", REQUEST_URI = "", PARAMS = {}, headers = {}) {
 
     let defaultHeaders = {
         Accept: "application/json",
         "platform-type": "web",
         "app-version": process.env.NEXT_PUBLIC_APP_VERSION,
         "app-name": process.env.NEXT_PUBLIC_APP_NAME,
+        'Access-Control-Allow-Origin':'*'
     };
 
     if (!isEmpty(headers)) {
@@ -29,34 +30,6 @@ const api = async function (METHOD = "GET", REQUEST_URI = "", PARAMS = {}, autho
         defaultParams = merge(defaultParams, PARAMS);
     }
 
-    if (authorization) {
-        let token_expired = false;
-        let token = null;
-        if (typeof window !== "undefined") {
-            token = localStorage.getItem(`${authorization}`) || "";
-        }
-        if (!isEmpty(token)) {
-            token = JSON.parse(token);
-            if (!isEmpty(token.expiration_date)) {
-                const now = new Date().getTime();
-                const expiration_date = new Date(token.expiration_date).getTime();
-                token_expired = now >= expiration_date;
-            } else {
-                token_expired = true;
-            }
-        }
-        // if (isEmpty(token) || token_expired) {
-        //     // CALL useClientToken HOOK HERE
-        //     await useClientToken();
-        //     if (typeof window !== "undefined") {
-        //         token = JSON.parse(localStorage.getItem(`${authorization}`) || "");
-        //     }
-        // }
-        if (typeof window !== "undefined") {
-            axiosInstance.defaults.headers.common["Authorization"] = `${token.token_type} ${token.access_token}`;
-        }
-        axiosInstance.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest";
-    }
     METHOD = METHOD.toUpperCase();
 
     try {
@@ -73,9 +46,9 @@ const api = async function (METHOD = "GET", REQUEST_URI = "", PARAMS = {}, autho
                   error.info = response.statusText;
                   error.status = response.status;
     
-                  localStorage.removeItem(authorization)
+                  localStorage.removeItem(Token.Personal)
                   location.reload()
-                  console.log(error, authorization)
+                  console.log(error)
                   
                   throw error;
                 }
@@ -92,9 +65,9 @@ const api = async function (METHOD = "GET", REQUEST_URI = "", PARAMS = {}, autho
                   error.info = response.statusText;
                   error.status = response.status;
     
-                  localStorage.removeItem(authorization)
+                  localStorage.removeItem(Token.Personal)
                   location.reload()
-                  console.log(error, authorization)
+                  console.log(error)
                   
                   throw error;
                 }
@@ -105,12 +78,12 @@ const api = async function (METHOD = "GET", REQUEST_URI = "", PARAMS = {}, autho
             console.warn(error);
             if (error.response.statusText === "Unauthorized" || error.response.status === 401) {
                 if (typeof window !== "undefined") {
-                    localStorage.removeItem(authorization);
+                    localStorage.removeItem(Token.Personal);
                     location.reload();
                 }
             }
         }
-        console.log(error, authorization);
+        console.log(error);
     }
 };
 

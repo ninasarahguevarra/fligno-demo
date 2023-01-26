@@ -11,7 +11,7 @@ const Login = () => {
     const {
         register,
         formState: { errors },
-        handleSubmit,
+        handleSubmit
     } = useForm();
     const { loginResponse } = useSelector(selectAuth);
 
@@ -19,7 +19,7 @@ const Login = () => {
         const { email, password } = data;
         const payload = {
             email,
-            password,
+            password
         };
         dispatch(postAuthentication(payload));
     };
@@ -28,6 +28,7 @@ const Login = () => {
         if (loginResponse.status) {
             window.location.href = "/dashboard";
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loginResponse]);
 
     return (
@@ -41,7 +42,7 @@ const Login = () => {
                             name="email"
                             autoComplete="email"
                             {...register("email", {
-                                required: "Email is required",
+                                required: "Email is required"
                             })}
                         />
                         {errors.email && (
@@ -61,7 +62,7 @@ const Login = () => {
                             type="password"
                             autoComplete="current-password"
                             {...register("password", {
-                                required: "Password is required",
+                                required: "Password is required"
                             })}
                         />
                         {errors.password && (

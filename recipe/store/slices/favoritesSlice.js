@@ -45,36 +45,36 @@ export const FavoritesSlice = createSlice({
                 state.favorites = favoritesPayload.favorites;
             })
 
-            .addCase(postAddToFavorites.pending, (state, action) => {
+            .addCase(postAddToFavorites.pending, (state) => {
                 state.isLoading = true;
             })
             .addCase(postAddToFavorites.fulfilled, (state, action) => {
                 state.addedfavoritesResponse = action.payload;
                 state.isLoading = false;
             })
-            .addCase(postAddToFavorites.rejected, (state, action) => {
+            .addCase(postAddToFavorites.rejected, (state) => {
                 state.isLoading = false;
             })
 
-            .addCase(postRemoveFromFavorites.pending, (state, action) => {
+            .addCase(postRemoveFromFavorites.pending, (state) => {
                 state.isLoading = true;
             })
             .addCase(postRemoveFromFavorites.fulfilled, (state, action) => {
                 state.removedfavoritesResponse = action.payload;
                 state.isLoading = false;
             })
-            .addCase(postRemoveFromFavorites.rejected, (state, action) => {
+            .addCase(postRemoveFromFavorites.rejected, (state) => {
                 state.isLoading = false;
             })
 
-            .addCase(getFavorites.pending, (state, action) => {
+            .addCase(getFavorites.pending, (state) => {
                 state.isLoading = true;
             })
             .addCase(getFavorites.fulfilled, (state, action) => {
                 state.favorites = action.payload;
                 state.isLoading = false;
             })
-            .addCase(getFavorites.rejected, (state, action) => {
+            .addCase(getFavorites.rejected, (state) => {
                 state.isLoading = false;
             })
     },

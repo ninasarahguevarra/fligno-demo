@@ -9,15 +9,16 @@ import NavbarComponent from "components/NavbarComponent";
 import styles from "assets/styles/DefaultLayout.module.scss";
 
 const DefaultLayout = ({ children }) => {
-    
+
     const router = useRouter();
     const { push } = router;
     const { isLoading } = useSelector(selectRecipeList);
-    
+
     useEffect(() => {
         if (isEmpty(localStorage.getItem(Token.Personal))) {
             push("/");
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return (

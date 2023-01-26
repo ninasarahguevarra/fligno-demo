@@ -13,6 +13,7 @@ const AccessLayout = ({ children, type, title }) => {
         if (!isEmpty(JSON.parse(localStorage.getItem(Token.Personal)))) {
             router.push("/dashboard");
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return (
@@ -21,8 +22,8 @@ const AccessLayout = ({ children, type, title }) => {
                 <title>Recipe - {type}</title>
             </Head>
             <div className={styles.wrapper}>
-                <div className={styles['sub-wrapper']}>
-                    <div className={styles['form-container']}>
+                <div className={styles["sub-wrapper"]}>
+                    <div className={styles["form-container"]}>
                         <div className="mb-8">
                             <Image
                                 src="/images/logo.png"

@@ -5,7 +5,7 @@ import { CSVLink } from "react-csv";
 import split from "lodash/split";
 import last from "lodash/last";
 import isEmpty from "lodash/isEmpty";
-import { Token } from "@/utils/enum";
+import { Token } from "utils/enum";
 import { selectRecipeList, getRecipeList, setRecipeDetails } from "store/slices/recipeListSlice";
 import { getFavorites, selectFavorites } from "store/slices/favoritesSlice";
 import DefaultLayout from "components/Layouts/DefaultLayout";
@@ -24,27 +24,29 @@ const Home = () => {
     const [csvData, setCsvData] = useState([csvHeaders]);
     const payload = {
         type: "any",
-        diet: "balanced",
+        diet: "balanced"
     };
-    
+
     useEffect(() => {
         if (isEmpty(recipeList)) {
             dispatch(getRecipeList(payload));
         }
         if (isEmpty(favorites) && !isEmpty(JSON.parse(localStorage.getItem(Token.Personal)))) {
-            dispatch(getFavorites({user_id: JSON.parse(localStorage.getItem(Token.Personal)).id}));
+            dispatch(getFavorites({ user_id: JSON.parse(localStorage.getItem(Token.Personal)).id }));
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // START OF CSV EXPORT
     useEffect(() => {
-        let tempCsvData = [];
+        const tempCsvData = [];
         tempCsvData.push(csvHeaders);
 
         recipeList?.hits?.map((item) => {
             tempCsvData.push([item.recipe.label, item.recipe.dietLabels, item.recipe.ingredientLines]);
         });
         setCsvData(tempCsvData);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [recipeList]);
     // END OF CSV EXPORT
 
@@ -53,28 +55,28 @@ const Home = () => {
         const recipeId = last(split(recipe.recipe.uri, "recipe_"));
         router.push({
             pathname: "/dashboard/[recipeId]",
-            query: { recipeId },
+            query: { recipeId }
         });
     };
 
     // START OF PAGINATION
     const getCont = !isEmpty(recipeList)
         ? decodeURI(recipeList._links.next.href)
-              .replace("?", "")
-              .split("&")
-              .map((param) => param.split("="))
-              .reduce((values, [key, value]) => {
-                  values[key] = value;
-                  return values;
-              }, {})
+            .replace("?", "")
+            .split("&")
+            .map((param) => param.split("="))
+            .reduce((values, [key, value]) => {
+                values[key] = value;
+                return values;
+            }, {})
         : { _cont: "" };
 
     const onPreviousPage = () => {
-        let clonedArr = [...paginationArr];
+        const clonedArr = [...paginationArr];
         clonedArr.pop();
         setPaginationArr(clonedArr);
         const previousCont = paginationArr[paginationArr.length - 2];
-        const items = {...payload};
+        const items = { ...payload };
         if (!isEmpty(previousCont)) {
             items._cont = previousCont;
         }
@@ -83,7 +85,7 @@ const Home = () => {
 
     const onNextPage = () => {
         setPaginationArr((prevArray) => [...prevArray, getCont._cont]);
-        const items = {...payload};
+        const items = { ...payload };
         if (!isEmpty(paginationArr)) {
             items._cont = getCont._cont;
         }
@@ -95,7 +97,7 @@ const Home = () => {
         <DefaultLayout>
             { !isEmpty(recipeList) &&
                 <>
-                    <div className={styles['csv-wrapper']}>
+                    <div className={styles["csv-wrapper"]}>
                         <ButtonComponent
                             action="button"
                             className="w-auto"
@@ -108,7 +110,7 @@ const Home = () => {
                             </CSVLink>
                         </ButtonComponent>
                     </div>
-                    <div className={styles['card-wrapper']}>
+                    <div className={styles["card-wrapper"]}>
                         {recipeList &&
                             recipeList.hits?.map((list, index) => (
                                 <CardComponent

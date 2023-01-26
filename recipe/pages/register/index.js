@@ -15,7 +15,7 @@ const Register = () => {
         register,
         watch,
         formState: { errors },
-        handleSubmit,
+        handleSubmit
     } = useForm();
     const [passwordType, setPasswordType] = useState("password");
     const [cPasswordType, setCPasswordType] = useState("password");
@@ -47,7 +47,7 @@ const Register = () => {
         const payload = {
             name,
             email,
-            password,
+            password
         };
         dispatch(postRegistration(payload));
     };
@@ -56,6 +56,7 @@ const Register = () => {
         if (registrationResponse.status) {
             window.location.href = "/dashboard";
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [registrationResponse]);
 
     return (
@@ -70,7 +71,7 @@ const Register = () => {
                             type="text"
                             autoComplete="name"
                             {...register("name", {
-                                required: "Name is required",
+                                required: "Name is required"
                             })}
                         />
                         {errors.name && (
@@ -84,6 +85,7 @@ const Register = () => {
                 <div>
                     <label htmlFor="email">Email address</label>
                     <div className="mt-1">
+                        {/* eslint-disable */}
                         <input
                             id="email"
                             name="email"
@@ -92,8 +94,8 @@ const Register = () => {
                                 required: "Email is required",
                                 pattern: {
                                     value: /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
-                                    message: "Invalid email address",
-                                },
+                                    message: "Invalid email address"
+                                }
                             })}
                         />
                         {errors.email && (
@@ -107,13 +109,13 @@ const Register = () => {
                 <div>
                     <label htmlFor="password">Password</label>
                     <div className="mt-1 flex rounded-md shadow-sm">
-                        <div className={styles['password-input']}>
+                        <div className={styles["password-input"]}>
                             <input
                                 type={passwordType}
                                 name="password"
                                 id="password"
                                 {...register("password", {
-                                    required: "Password is required",
+                                    required: "Password is required"
                                 })}
                             />
                         </div>
@@ -138,7 +140,7 @@ const Register = () => {
                 <div>
                     <label htmlFor="password">Confirm Password</label>
                     <div className="mt-1 flex rounded-md shadow-sm">
-                        <div className={styles['password-input']}>
+                        <div className={styles["password-input"]}>
                             <input
                                 type={cPasswordType}
                                 name="confirm_password"
@@ -146,10 +148,10 @@ const Register = () => {
                                 {...register("confirm_password", {
                                     required: "Confirm password is required",
                                     validate: (val) => {
-                                        if (watch("password") != val) {
+                                        if (watch("password") !== val) {
                                             return "Your passwords do no match";
                                         }
-                                    },
+                                    }
                                 })}
                             />
                         </div>

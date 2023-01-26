@@ -41,25 +41,25 @@ export const DashboardSlice = createSlice({
                 state.recipeList = RecipeListPayload.account;
             })
 
-            .addCase(getRecipeList.pending, (state, action) => {
+            .addCase(getRecipeList.pending, (state) => {
                 state.isLoading = true;
             })
             .addCase(getRecipeList.fulfilled,(state, action) => {
                 state.recipeList = action.payload;
                 state.isLoading = false;
             })
-            .addCase(getRecipeList.rejected, (state, action) => {
+            .addCase(getRecipeList.rejected, (state) => {
                 state.isLoading = false;
             })
 
-            .addCase(getRecipeDetails.pending, (state, action) => {
+            .addCase(getRecipeDetails.pending, (state) => {
                 state.isLoading = true;
             })
             .addCase(getRecipeDetails.fulfilled,(state, action) => {
                 state.recipeDetails = action.payload;
                 state.isLoading = false;
             })
-            .addCase(getRecipeDetails.rejected, (state, action) => {
+            .addCase(getRecipeDetails.rejected, (state) => {
                 state.isLoading = false;
             })
 
