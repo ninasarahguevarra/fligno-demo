@@ -24,21 +24,9 @@ CSS Framework: TailwindCSS
 Repository: https://github.com/ninasarahguevarra/fligno-demo
 
 Getting Started:
-
-Copy this .env.local
-    NEXT_PUBLIC_NODE_ENV=development
-    NEXT_PUBLIC_APP_API_URL=https://api.edamam.com
-    NEXT_PUBLIC_APP_BASE_URL = http://localhost:3000
-    NEXT_PUBLIC_APP_NAME=Recipe
-    NEXT_PUBLIC_APP_VERSION=1.0.0
-    NEXT_PUBLIC_APP_ID=4cfaaf3f
-    NEXT_PUBLIC_APP_KEY=4a8b914ba88abad70dc6ae2b07e5a8b8
-    NEXT_PUBLIC_API_URL_DB=http://127.0.0.1:8000/api
-
-Run the development server:
-
-npm run dev
-
-Open http://localhost:3000 with your browser to see the result.
+    Make a copy of env.local (by copying .env.example)
+    Install dependencies: npm install
+    Run the development server: npm run dev
+    Open http://localhost:3000 with your browser to see the result.
 
 
