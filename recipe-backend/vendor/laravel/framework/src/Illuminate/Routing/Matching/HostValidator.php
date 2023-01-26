@@ -1,22 +1,27 @@
-<?php namespace Illuminate\Routing\Matching;
+<?php
+
+namespace Illuminate\Routing\Matching;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 
-class HostValidator implements ValidatorInterface {
+class HostValidator implements ValidatorInterface
+{
+    /**
+     * Validate a given rule against a route and request.
+     *
+     * @param  \Illuminate\Routing\Route  $route
+     * @param  \Illuminate\Http\Request  $request
+     * @return bool
+     */
+    public function matches(Route $route, Request $request)
+    {
+        $hostRegex = $route->getCompiled()->getHostRegex();
 
-	/**
-	 * Validate a given rule against a route and request.
-	 *
-	 * @param  \Illuminate\Routing\Route  $route
-	 * @param  \Illuminate\Http\Request  $request
-	 * @return bool
-	 */
-	public function matches(Route $route, Request $request)
-	{
-		if (is_null($route->getCompiled()->getHostRegex())) return true;
+        if (is_null($hostRegex)) {
+            return true;
+        }
 
-		return preg_match($route->getCompiled()->getHostRegex(), $request->getHost());
-	}
-
+        return preg_match($hostRegex, $request->getHost());
+    }
 }

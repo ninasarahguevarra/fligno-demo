@@ -1,78 +1,139 @@
-<?php namespace Illuminate\Http;
+<?php
 
-use Illuminate\Support\Contracts\JsonableInterface;
+namespace Illuminate\Http;
 
-class JsonResponse extends \Symfony\Component\HttpFoundation\JsonResponse {
+use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Contracts\Support\Jsonable;
+use Illuminate\Support\Traits\Macroable;
+use InvalidArgumentException;
+use JsonSerializable;
+use Symfony\Component\HttpFoundation\JsonResponse as BaseJsonResponse;
 
-	use ResponseTrait;
+class JsonResponse extends BaseJsonResponse
+{
+    use ResponseTrait, Macroable {
+        Macroable::__call as macroCall;
+    }
 
-	/**
-	 * The json encoding options.
-	 *
-	 * @var int
-	 */
-	protected $jsonOptions;
+    /**
+     * Constructor.
+     *
+     * @param  mixed  $data
+     * @param  int  $status
+     * @param  array  $headers
+     * @param  int  $options
+     * @param  bool  $json
+     * @return void
+     */
+    public function __construct($data = null, $status = 200, $headers = [], $options = 0, $json = false)
+    {
+        $this->encodingOptions = $options;
 
-	/**
-	 * Constructor.
-	 *
-	 * @param  mixed  $data
-	 * @param  int    $status
-	 * @param  array  $headers
-	 * @param  int    $options
-	*/
-	public function __construct($data = null, $status = 200, $headers = array(), $options = 0)
-	{
-		$this->jsonOptions = $options;
+        parent::__construct($data, $status, $headers, $json);
+    }
 
-		parent::__construct($data, $status, $headers);
-	}
+    /**
+     * {@inheritdoc}
+     *
+     * @return static
+     */
+    public static function fromJsonString(?string $data = null, int $status = 200, array $headers = [])
+    {
+        return new static($data, $status, $headers, 0, true);
+    }
 
-	/**
-	 * Get the json_decoded data from the response
-	 *
-	 * @param  bool  $assoc
-	 * @param  int   $depth
-	 * @return mixed
-	 */
-	public function getData($assoc = false, $depth = 512)
-	{
-		return json_decode($this->data, $assoc, $depth);
-	}
+    /**
+     * Sets the JSONP callback.
+     *
+     * @param  string|null  $callback
+     * @return $this
+     */
+    public function withCallback($callback = null)
+    {
+        return $this->setCallback($callback);
+    }
 
-	/**
-	 * {@inheritdoc}
-	 */
-	public function setData($data = array())
-	{
-		$this->data = $data instanceof JsonableInterface
-								   ? $data->toJson($this->jsonOptions)
-								   : json_encode($data, $this->jsonOptions);
+    /**
+     * Get the json_decoded data from the response.
+     *
+     * @param  bool  $assoc
+     * @param  int  $depth
+     * @return mixed
+     */
+    public function getData($assoc = false, $depth = 512)
+    {
+        return json_decode($this->data, $assoc, $depth);
+    }
 
-		return $this->update();
-	}
+    /**
+     * {@inheritdoc}
+     *
+     * @return static
+     */
+    public function setData($data = [])
+    {
+        $this->original = $data;
 
-	/**
-	 * Get the JSON encoding options.
-	 *
-	 * @return int
-	 */
-	public function getJsonOptions()
-	{
-		return $this->jsonOptions;
-	}
+        // Ensure json_last_error() is cleared...
+        json_decode('[]');
 
-	/**
-	 * Set the JSON encoding options.
-	 *
-	 * @param  int  $options
-	 * @return mixed
-	 */
-	public function setJsonOptions($options)
-	{
-		$this->jsonOptions = $options;
+        if ($data instanceof Jsonable) {
+            $this->data = $data->toJson($this->encodingOptions);
+        } elseif ($data instanceof JsonSerializable) {
+            $this->data = json_encode($data->jsonSerialize(), $this->encodingOptions);
+        } elseif ($data instanceof Arrayable) {
+            $this->data = json_encode($data->toArray(), $this->encodingOptions);
+        } else {
+            $this->data = json_encode($data, $this->encodingOptions);
+        }
 
-		return $this->setData($this->getData());
-	}
+        if (! $this->hasValidJson(json_last_error())) {
+            throw new InvalidArgumentException(json_last_error_msg());
+        }
 
+        return $this->update();
+    }
+
+    /**
+     * Determine if an error occurred during JSON encoding.
+     *
+     * @param  int  $jsonError
+     * @return bool
+     */
+    protected function hasValidJson($jsonError)
+    {
+        if ($jsonError === JSON_ERROR_NONE) {
+            return true;
+        }
+
+        return $this->hasEncodingOption(JSON_PARTIAL_OUTPUT_ON_ERROR) &&
+                    in_array($jsonError, [
+                        JSON_ERROR_RECURSION,
+                        JSON_ERROR_INF_OR_NAN,
+                        JSON_ERROR_UNSUPPORTED_TYPE,
+                    ]);
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * @return static
+     */
+    public function setEncodingOptions($options)
+    {
+        $this->encodingOptions = (int) $options;
+
+        return $this->setData($this->getData());
+    }
+
+    /**
+     * Determine if a JSON encoding option is set.
+     *
+     * @param  int  $option
+     * @return bool
+     */
+    public function hasEncodingOption($option)
+    {
+        return (bool) ($this->encodingOptions & $option);
+    }
 }
